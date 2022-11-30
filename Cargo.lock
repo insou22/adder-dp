@@ -6,9 +6,16 @@ version = 3
 name = "adder_dp"
 version = "0.1.0"
 dependencies = [
+ "atomic-bitvec",
  "itertools",
  "rayon",
 ]
+
+[[package]]
+name = "atomic-bitvec"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "416ea34925aeabe4be0a6dbfc951ab704f514828b2ac33db3b57a3a27d3f43c0"
 
 [[package]]
 name = "autocfg"

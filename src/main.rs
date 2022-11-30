@@ -1,5 +1,6 @@
-use std::{io::{BufRead, Write}, ops::{Neg, Not}, sync::atomic::{AtomicU32, Ordering}, fmt::Display};
+use std::{io::{BufRead, Write}, ops::Neg, sync::atomic::{AtomicU32, Ordering, AtomicU64}};
 
+use atomic_bitvec::AtomicBitVec;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 fn main() {
@@ -27,7 +28,7 @@ fn main() {
     let sum_size = most_negative + 1 + most_positive;
     println!("sum_size={}", sum_size);
 
-    let mut dp_table = create_dp_table(sum_size, total);
+    let dp_table = create_dp_table(sum_size, total);
 
     println!("Table successfully constructed");
 
@@ -36,15 +37,15 @@ fn main() {
         
         let current_entry = entries[i] as isize;
 
-        dp_table[i][zero_index] = AtomicBool::new(true);
+        dp_table[i].set_true(zero_index);
         
         if i == 0 {
-            dp_table[i][(zero_index as isize + current_entry) as usize].set_true();
+            dp_table[i].set_true((zero_index as isize + current_entry) as usize);
         } else {
             (0..sum_size).into_par_iter()
                 .for_each(|j| {
-                    if dp_table[i - 1][j].load() {
-                        dp_table[i][j].set_true();
+                    if dp_table[i - 1].load(j) {
+                        dp_table[i].set_true(j);
                     }
                 });
 
@@ -59,15 +60,15 @@ fn main() {
                         return;
                     }
 
-                    if dp_table[i - 1][index as usize].load() {
-                        dp_table[i][j].set_true();
+                    if dp_table[i - 1].load(index as usize) {
+                        dp_table[i].set_true(j);
                     }
                 });
         }
     }
 
     println!("Finished the table");
-    let exists = dp_table[total - 1][(target as isize + zero_index as isize) as usize].load();
+    let exists = dp_table[total - 1].load((target as isize + zero_index as isize) as usize);
     println!("Does a total of {target} exist? {exists}");
 
     if exists {
@@ -75,7 +76,7 @@ fn main() {
         let mut current_sum = (target as isize + zero_index as isize) as usize;
 
         for current_i in (0..total).rev() {
-            if current_i == 0 || !dp_table[current_i - 1][current_sum].load() {
+            if current_i == 0 || !dp_table[current_i - 1].load(current_sum) {
                 let must_include = entries[current_i];
                 println!("...must include {must_include} to make sum of {}", (current_sum as isize - zero_index as isize));
 
@@ -96,74 +97,37 @@ fn main() {
     }
 }
 
-fn create_dp_table(sum_size: usize, total: usize) -> Vec<Vec<AtomicBool>> {
-    let mut last = Vec::with_capacity(sum_size);
-    for _ in 0..sum_size {
-        last.push(AtomicBool::new(false));
-    }
+fn create_dp_table(sum_size: usize, total: usize) -> Vec<AtomicBitVec> {
     let dp_table_progress = AtomicU32::new(0);
-    let mut dp_table = (1..total).into_par_iter()
-        .map(|_| last.clone())
+    (0..total).into_par_iter()
+        .map(|_| {
+            let mut bitvec = AtomicBitVec::with_bit_capacity(sum_size);
+            bitvec.resize_bits_with(sum_size, || AtomicU64::new(0));
+            bitvec
+        })
         .inspect(|_| println!("{}/{total}", dp_table_progress.fetch_add(1, Ordering::SeqCst) + 1))
-        .collect::<Vec<_>>();
-    dp_table.push(last);
-    println!("{total}/{total}");
-
-    dp_table
+        .collect::<Vec<_>>()
 }
 
-
-#[repr(transparent)]
-struct AtomicBool {
-    inner: std::sync::atomic::AtomicBool,
+trait AtomicBitVecExt {
+    fn load(&self, index: usize) -> bool;
+    fn set_true(&self, index: usize);
+    fn set_false(&self, index: usize);
 }
 
-impl AtomicBool {
-    fn new(b: bool) -> Self {
-        Self { inner: std::sync::atomic::AtomicBool::new(b) }
+impl AtomicBitVecExt for AtomicBitVec {
+    fn load(&self, index: usize) -> bool {
+        self.get(index, Ordering::SeqCst)
     }
 
-    fn set_true(&self) {
-        self.inner.store(true, Ordering::SeqCst);
+    fn set_true(&self, index: usize) {
+        self.set(index, true, Ordering::SeqCst);
     }
 
-    fn load(&self) -> bool {
-        self.into()
-    }
-}
-
-impl Clone for AtomicBool {
-    fn clone(&self) -> Self {
-        Self::new(self.inner.load(Ordering::SeqCst))
+    fn set_false(&self, index: usize) {
+        self.set(index, false, Ordering::SeqCst);
     }
 }
-
-impl PartialEq<bool> for AtomicBool {
-    fn eq(&self, other: &bool) -> bool {
-        self.inner.load(Ordering::SeqCst) == *other
-    }
-}
-
-impl Not for AtomicBool {
-    type Output = bool;
-
-    fn not(self) -> Self::Output {
-        !self.inner.load(Ordering::SeqCst)
-    }
-}
-
-impl Display for AtomicBool {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.inner.load(Ordering::SeqCst).fmt(f)
-    }
-}
-
-impl From<&AtomicBool> for bool {
-    fn from(b: &AtomicBool) -> bool {
-        b.inner.load(Ordering::SeqCst)
-    }
-}
-
 
 struct Input {
     total: i32,
