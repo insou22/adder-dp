@@ -1,0 +1,9 @@
+
+[package]
+name = "adder_algorithm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+atomic-bitvec = "0.1.1"
+rayon = "1.5.1"

@@ -1,0 +1,11 @@
+[package]
+name = "adder_gui_iced_fail"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+adder_algorithm = { path = "../algorithm" }
+iced = "0.5.2"
+iced_aw = { git = "https://github.com/iced-rs/iced_aw" }
+# iced_native = "0.5.1"

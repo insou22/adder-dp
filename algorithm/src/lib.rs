@@ -1,14 +1,9 @@
-use std::{io::{BufRead, Write}, ops::Neg, sync::atomic::{AtomicU32, Ordering, AtomicU64}};
+use std::{ops::Neg, sync::atomic::{AtomicU32, Ordering, AtomicU64, AtomicUsize}};
 
 use atomic_bitvec::AtomicBitVec;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
-fn main() {
-    let Input {
-        total: target,
-        entries,
-    } = gather_input();
-
+pub fn run_algorithm(target: i64, entries: Vec<i64>, progress: Option<&AtomicUsize>) -> Option<Vec<i64>> {
     let total = entries.len();
 
     let most_negative: usize = entries.iter()
@@ -33,6 +28,9 @@ fn main() {
     println!("Table successfully constructed");
 
     for i in 0..total {
+        if let Some(progress) = progress {
+            progress.store(i, Ordering::SeqCst)
+        }
         println!("{}/{}", i, total);
         
         let current_entry = entries[i] as isize;
@@ -88,12 +86,16 @@ fn main() {
             if current_sum == zero_index { break; }
         }
 
-        let sum: i32 = subset.iter().sum();
+        let sum: i64 = subset.iter().sum();
 
         println!("Sanity check: current_sum ({current_sum}) == zero_index ({zero_index})? {}", current_sum == zero_index);
         println!("Sanity check: subset sum ({sum}) == target ({target})? {}", sum == target);
 
         println!("Subset: {:?}", subset);
+
+        Some(subset)
+    } else {
+        None
     }
 }
 
@@ -126,40 +128,5 @@ impl AtomicBitVecExt for AtomicBitVec {
 
     fn set_false(&self, index: usize) {
         self.set(index, false, Ordering::SeqCst);
-    }
-}
-
-struct Input {
-    total: i32,
-    entries: Vec<i32>,
-}
-
-fn gather_input() -> Input {
-    print!("Please enter the total in cents: ");
-    std::io::stdout().flush().unwrap();
-    
-    let mut total = String::new();
-    std::io::stdin().lock().read_line(&mut total).unwrap();
-    let total = total.trim_end().parse::<i32>().unwrap();
-
-    print!("Please enter the number of entries: ");
-    std::io::stdout().flush().unwrap();
-
-    let mut n_entries = String::new();
-    std::io::stdin().lock().read_line(&mut n_entries).unwrap();
-    let n_entries = n_entries.trim_end().parse::<usize>().unwrap();
-
-    println!("Please enter the {} entries in cents (1 per line): ", n_entries);
-    let mut entries = Vec::with_capacity(n_entries);
-    for _ in 0..n_entries {
-        let mut entry = String::new();
-        std::io::stdin().lock().read_line(&mut entry).unwrap();
-
-        entries.push(entry.trim_end().parse::<i32>().unwrap());
-    }
-
-    Input {
-        total,
-        entries,
     }
 }
