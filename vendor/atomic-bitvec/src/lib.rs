@@ -16,6 +16,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::borrow::Borrow;
 use std::marker::PhantomData;
+use std::num::NonZero;
 
 /// AtomicBitVec is build atop a standard [`Vec`], and uses [`AtomicU64`] for its backing store.
 /// The ordering for atomic operations is left to the user to decide.
@@ -353,12 +354,12 @@ impl<'a, Inner> Iterator for Iter<'a, Inner> where Inner: Borrow<AtomicBitVec> +
         (hint, Some(hint))
     }
 
-    fn advance_by(&mut self, n: usize) -> Result<(), usize> {
+    fn advance_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
         if self.idx + n <= self.back_idx {
             self.idx += n;
             Ok(())
         } else {
-            let e = self.back_idx - self.idx;
+            let e = NonZero::new(self.back_idx - self.idx).unwrap();
             self.idx += n;
             Err(e)
         }

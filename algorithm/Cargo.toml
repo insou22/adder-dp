@@ -5,5 +5,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-atomic-bitvec = "0.1.1"
+atomic-bitvec = { path = "../vendor/atomic-bitvec" }
 rayon = "1.5.1"
